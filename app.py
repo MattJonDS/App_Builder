@@ -1,51 +1,65 @@
 import streamlit as st
 import openai
-import os
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.llms import OpenAI
+from langchain.chains import RetrievalQA
+import PyPDF2
 
 # Load OpenAI API key
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
 
-# Title and description for the app
-st.title("Chat Completion with GPT-4 Turbo")
-st.write("Chat with OpenAI's GPT-4-turbo model. Enjoy multi-turn conversations with chat history!")
+# Set up Streamlit app title and description
+st.title("Document Question-Answering Chatbot")
+st.write("Upload a PDF document, then ask questions based on the document content.")
 
-# Initialize conversation history in session state
-if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "system", "content": "You are a helpful assistant."}]
+# Initialize an empty document text variable
+document_text = ""
 
-# User input
-user_input = st.text_input("You:", "")
+# Upload document
+uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
 
-# Display conversation history
-for message in st.session_state.messages:
-    if message["role"] == "user":
-        st.write(f"You: {message['content']}")
-    elif message["role"] == "assistant":
-        st.write(f"Bot: {message['content']}")
+if uploaded_file is not None:
+    # Read PDF content
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    document_text = ""
+    for page_num in range(len(pdf_reader.pages)):
+        page = pdf_reader.pages[page_num]
+        document_text += page.extract_text()
 
-# Generate a response if user has entered input and clicked send
-if st.button("Send") and user_input:
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Call OpenAI API to generate chat completion
-    response = openai.ChatCompletion.create(
-        model="gpt-4-turbo",
-        messages=st.session_state.messages,
-        max_tokens=200,
-        temperature=0.7
+    st.write("Document successfully uploaded and processed.")
+
+    # Step 1: Split text into chunks for embeddings
+    text_splitter = CharacterTextSplitter(separator="\n", chunk_size=500, chunk_overlap=100)
+    texts = text_splitter.split_text(document_text)
+
+    # Step 2: Create embeddings for the document chunks
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+    vectorstore = FAISS.from_texts(texts, embeddings)
+
+    # Step 3: Set up LangChain Retrieval QA chain
+    retriever = vectorstore.as_retriever()
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=OpenAI(model="gpt-4-turbo"),
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=True
     )
-    
-    # Get assistant response and add it to the chat history
-    assistant_message = response.choices[0].message['content'].strip()
-    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
-    
-    # Display assistant response
-    st.write(f"Bot: {assistant_message}")
 
-# Button to clear the chat history
-if st.button("Clear Chat"):
-    st.session_state["messages"] = [{"role": "system", "content": "You are a helpful assistant."}]
+    # Ask questions based on the uploaded document
+    user_question = st.text_input("Ask a question about the document:")
+    if user_question:
+        # Run the question through the retrieval QA chain
+        response = qa_chain({"query": user_question})
+        answer = response['result']
+        st.write("Answer:", answer)
+
+        # Optional: Show source documents
+        st.write("Source documents:")
+        for doc in response["source_documents"]:
+            st.write("- ", doc.page_content[:200] + "...")  # Displaying a snippet of each source
+
 
 
 
