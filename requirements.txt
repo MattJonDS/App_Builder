@@ -1,8 +1,9 @@
-streamlit                  # Streamlit for the app framework
-torch                      # PyTorch if using Hugging Face models
-transformers               # Hugging Face Transformers for model handling
-openai                     # OpenAI API wrapper (only if using OpenAI models)
-sentence-transformers      # Optional: for embedding-based chatbot, if needed
-scikit-learn               # Optional: for similarity search with Nearest Neighbors
+streamlit
+openai
+langchain
+PyPDF2                  # for reading PDF documents (or use pypdf as an alternative)
+sentence-transformers   # for generating embeddings
+faiss-cpu               # for efficient similarity search
+
 
 
