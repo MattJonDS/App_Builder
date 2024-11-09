@@ -1,14 +1,15 @@
 import streamlit as st
 import openai
-from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.llms import OpenAI
 from langchain.chains import RetrievalQA
 import PyPDF2
+import os
 
 # Load OpenAI API key
-openai.api_key = st.secrets.get("OPENAI_API_KEY")
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
 # Set up Streamlit app title and description
 st.title("Document Question-Answering Chatbot")
@@ -59,6 +60,7 @@ if uploaded_file is not None:
         st.write("Source documents:")
         for doc in response["source_documents"]:
             st.write("- ", doc.page_content[:200] + "...")  # Displaying a snippet of each source
+
 
 
 
