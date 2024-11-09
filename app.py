@@ -1,4 +1,6 @@
 import streamlit as st
+from sentence_transformers import SentenceTransformer
+from sklearn.neighbors import NearestNeighbors
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
