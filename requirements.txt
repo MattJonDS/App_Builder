@@ -1,9 +1,8 @@
 streamlit
 openai
 langchain
-PyPDF2                  # for reading PDF documents (or use pypdf as an alternative)
-sentence-transformers   # for generating embeddings
-faiss-cpu               # for efficient similarity search
+PyPDF2
+
 
 
 
