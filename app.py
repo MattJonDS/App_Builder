@@ -10,7 +10,7 @@ st.write("Choose between Llama (Meta) and OpenAI's models for text generation.")
 
 # Set up OpenAI API key
 # Ensure this is set in your environment variables
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Model selection
 model_choice = st.selectbox("Choose a model", ["Llama (Meta)", "OpenAI"])
