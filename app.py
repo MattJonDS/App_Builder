@@ -28,16 +28,25 @@ if uploaded_file is not None:
     user_question = st.text_input("Ask a question about the document:")
     
     if user_question:
-        # Directly call OpenAI to answer the question based on document content
-        prompt = f"{document_text}\n\nQuestion: {user_question}\nAnswer:"
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt=prompt,
+        # Prepare the conversation for the ChatCompletion endpoint
+        messages = [
+            {"role": "system", "content": "You are an assistant that answers questions based on a provided document."},
+            {"role": "user", "content": f"Document content:\n{document_text}"},
+            {"role": "user", "content": f"Question: {user_question}"}
+        ]
+
+        # Call OpenAI's ChatCompletion endpoint
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Adjust to your preferred model, like gpt-4 if available
+            messages=messages,
             max_tokens=150,
             temperature=0.5
         )
-        answer = response.choices[0].text.strip()
+        
+        # Extract and display the response
+        answer = response['choices'][0]['message']['content'].strip()
         st.write("Answer:", answer)
+
 
 
 
