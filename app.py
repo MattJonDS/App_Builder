@@ -1,67 +1,105 @@
 import streamlit as st
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import openai
-import os
+from dotenv import load_dotenv
+from PyPDF2 import PdfReader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.chat_models import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from htmlTemplates import css, bot_template, user_template
+from langchain.llms import HuggingFaceHub
 
-# Load OpenAI API key from Streamlit secrets or environment variable
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+def get_pdf_text(pdf_docs):
+    text = ""
+    for pdf in pdf_docs:
+        pdf_reader = PdfReader(pdf)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    return text
 
-# Set up the app title and description
-st.title("Chat with LLaMA and OpenAI Models")
-st.write("Choose between Meta's LLaMA model and OpenAI's models to chat.")
 
-# Model selection
-model_choice = st.selectbox("Choose a model", ["LLaMA (Hugging Face)", "OpenAI GPT"])
+def get_text_chunks(text):
+    text_splitter = CharacterTextSplitter(
+        separator="\n",
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
 
-# Load Meta's LLaMA model from Hugging Face
-@st.cache_resource
-def load_llama_model():
-    MODEL_NAME = "meta-llama/Llama-2-7b-hf"  # Update with available LLaMA model
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-    model.to("cuda" if torch.cuda.is_available() else "cpu")
-    return model, tokenizer
 
-if model_choice == "LLaMA (Hugging Face)":
-    model, tokenizer = load_llama_model()
+def get_vectorstore(text_chunks):
+    embeddings = OpenAIEmbeddings()
+    # embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
+    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    return vectorstore
 
-# Chat history to keep context
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
 
-# User input for chat prompt
-user_input = st.text_input("You:", "")
+def get_conversation_chain(vectorstore):
+    llm = ChatOpenAI()
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
 
-# Display chat history
-for i, (user, bot) in enumerate(st.session_state.chat_history):
-    st.write(f"You: {user}")
-    st.write(f"Bot: {bot}")
+    memory = ConversationBufferMemory(
+        memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorstore.as_retriever(),
+        memory=memory
+    )
+    return conversation_chain
 
-# Generate response based on selected model
-if st.button("Send") and user_input:
-    st.session_state.chat_history.append((user_input, ""))  # Append user input temporarily
 
-    if model_choice == "LLaMA (Hugging Face)":
-        # Prepare input and generate response with LLaMA
-        inputs = tokenizer(user_input, return_tensors="pt").to(model.device)
-        outputs = model.generate(inputs.input_ids, max_length=100, num_return_sequences=1)
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+def handle_userinput(user_question):
+    response = st.session_state.conversation({'question': user_question})
+    st.session_state.chat_history = response['chat_history']
 
-    elif model_choice == "OpenAI GPT":
-        # Generate response with OpenAI API
-        try:
-            response = openai.Completion.create(
-                model="text-davinci-003",
-                prompt=user_input,
-                max_tokens=100,
-                stop=None,
-                temperature=0.7
-            ).choices[0].text.strip()
-        except Exception as e:
-            response = f"Error: {e}"
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace(
+                "{{MSG}}", message.content), unsafe_allow_html=True)
 
-    # Update chat history with bot response
-    st.session_state.chat_history[-1] = (user_input, response)
-    st.write(f"Bot: {response}")
+
+def main():
+    load_dotenv()
+    st.set_page_config(page_title="Chat with multiple PDFs",
+                       page_icon=":books:")
+    st.write(css, unsafe_allow_html=True)
+
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
+    st.header("Chat with multiple PDFs :books:")
+    user_question = st.text_input("Ask a question about your documents:")
+    if user_question:
+        handle_userinput(user_question)
+
+    with st.sidebar:
+        st.subheader("Your documents")
+        pdf_docs = st.file_uploader(
+            "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
+        if st.button("Process"):
+            with st.spinner("Processing"):
+                # get pdf text
+                raw_text = get_pdf_text(pdf_docs)
+
+                # get the text chunks
+                text_chunks = get_text_chunks(raw_text)
+
+                # create vector store
+                vectorstore = get_vectorstore(text_chunks)
+
+                # create conversation chain
+                st.session_state.conversation = get_conversation_chain(
+                    vectorstore)
+
+
+if __name__ == '__main__':
+    main()
 
