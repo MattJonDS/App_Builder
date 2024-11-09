@@ -1,6 +1,6 @@
 import streamlit as st
 from streamlit_chat import message
-from dotenv import load_dotenv
+
 import os
 
 from langchain.chat_models import ChatOpenAI
@@ -10,6 +10,8 @@ from langchain.schema import (
     AIMessage
 )
 
+
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
 def init():
     # Load the OpenAI API key from the environment variable
