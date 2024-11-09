@@ -13,16 +13,7 @@ from langchain.schema import (
 
 openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
-def init():
-    # Load the OpenAI API key from the environment variable
-    load_dotenv()
-    
-    # test that the API key exists
-    if os.getenv("OPENAI_API_KEY") is None or os.getenv("OPENAI_API_KEY") == "":
-        print("OPENAI_API_KEY is not set")
-        exit(1)
-    else:
-        print("OPENAI_API_KEY is set")
+
 
     # setup streamlit page
     st.set_page_config(
