@@ -7,7 +7,7 @@ import os
 openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
 # Set up Streamlit app title and description
-st.title("Basic Document Question-Answering Bot")
+st.title("Advanced Document Question-Answering Bot")
 st.write("Upload a PDF document and ask questions directly based on its content.")
 
 # Upload document
@@ -35,9 +35,9 @@ if uploaded_file is not None:
             {"role": "user", "content": f"Question: {user_question}"}
         ]
 
-        # Call OpenAI's ChatCompletion endpoint
+        # Call OpenAI's ChatCompletion endpoint with gpt-4
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Adjust to your preferred model, like gpt-4 if available
+            model="gpt-4",  # Use gpt-4 for higher sophistication
             messages=messages,
             max_tokens=150,
             temperature=0.5
